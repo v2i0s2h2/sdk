@@ -1,6 +1,6 @@
 use crate::lib::deps::get_pull_canisters_in_config;
 use crate::lib::environment::Environment;
-use crate::lib::error::DfxResult;
+use crate::lib::error::{DfxError, DfxResult};
 use crate::lib::ic_attributes::{
     get_compute_allocation, get_freezing_threshold, get_memory_allocation, CanisterSettings,
 };
@@ -11,14 +11,12 @@ use crate::util::clap::parsers::cycle_amount_parser;
 use crate::util::clap::parsers::{
     compute_allocation_parser, freezing_threshold_parser, memory_allocation_parser,
 };
-use byte_unit::Byte;
-use dfx_core::error::identity::IdentityError;
-use dfx_core::error::identity::IdentityError::GetIdentityPrincipalFailed;
-use dfx_core::identity::CallSender;
-
 use anyhow::{bail, Context};
+use byte_unit::Byte;
 use candid::Principal as CanisterId;
 use clap::{ArgAction, Parser};
+use dfx_core::error::identity::IdentityError::GetIdentityPrincipalFailed;
+use dfx_core::identity::CallSender;
 use ic_agent::Identity as _;
 use slog::info;
 
@@ -88,6 +86,7 @@ pub async fn exec(
     if opts.specified_id.is_none()
         && !opts.no_wallet
         && !matches!(call_sender, CallSender::Wallet(_))
+        && !network.is_playground()
     {
         let wallet = get_or_create_wallet_canister(
             env,
@@ -119,11 +118,12 @@ pub async fn exec(
                                     .and_then(|identity| {
                                         identity.sender().map_err(GetIdentityPrincipalFailed)
                                     })
+                                    .map_err(DfxError::new)
                             }
                         }
                     },
                 )
-                .collect::<Result<Vec<_>, IdentityError>>()
+                .collect::<Result<Vec<_>, DfxError>>()
         })
         .transpose()
         .context("Failed to determine controllers.")?;

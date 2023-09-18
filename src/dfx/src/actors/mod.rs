@@ -11,10 +11,9 @@ use crate::actors::shutdown_controller::ShutdownController;
 use crate::lib::environment::Environment;
 use crate::lib::error::DfxResult;
 use crate::lib::replica_config::ReplicaConfig;
-use dfx_core::config::model::local_server_descriptor::LocalServerDescriptor;
-
 use actix::{Actor, Addr, Recipient};
 use anyhow::Context;
+use dfx_core::config::model::local_server_descriptor::LocalServerDescriptor;
 use fn_error_context::context;
 use std::fs;
 use std::path::PathBuf;
@@ -122,7 +121,7 @@ fn setup_replica_env(
     let replica_configuration_dir = local_server_descriptor.replica_configuration_dir();
     fs::create_dir_all(&replica_configuration_dir).with_context(|| {
         format!(
-            "Failed to create replica config direcory {}.",
+            "Failed to create replica config directory {}.",
             replica_configuration_dir.to_string_lossy()
         )
     })?;

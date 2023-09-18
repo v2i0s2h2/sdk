@@ -3,7 +3,6 @@ use crate::lib::error::{DfxError, DfxResult};
 use crate::lib::root_key::fetch_root_key_if_needed;
 use crate::util::clap::parsers;
 use crate::util::print_idl_blob;
-
 use anyhow::{anyhow, Context};
 use backoff::backoff::Backoff;
 use backoff::ExponentialBackoff;
@@ -59,14 +58,8 @@ pub async fn exec(env: &dyn Environment, opts: RequestStatusOpts) -> DfxResult {
                 .context("Failed to fetch request status.")?
             {
                 RequestStatusResponse::Replied { reply } => return Ok(reply),
-                RequestStatusResponse::Rejected {
-                    reject_code,
-                    reject_message,
-                } => {
-                    return Err(DfxError::new(AgentError::ReplicaError {
-                        reject_code,
-                        reject_message,
-                    }))
+                RequestStatusResponse::Rejected(response) => {
+                    return Err(DfxError::new(AgentError::ReplicaError(response)))
                 }
                 RequestStatusResponse::Unknown => (),
                 RequestStatusResponse::Received | RequestStatusResponse::Processing => {

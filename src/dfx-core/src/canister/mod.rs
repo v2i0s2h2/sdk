@@ -1,3 +1,8 @@
+use crate::{
+    cli::ask_for_consent,
+    error::canister::{CanisterBuilderError, CanisterInstallError},
+    identity::CallSender,
+};
 use candid::Principal;
 use ic_agent::Agent;
 use ic_utils::{
@@ -9,12 +14,6 @@ use ic_utils::{
     Argument,
 };
 use slog::{info, Logger};
-
-use crate::{
-    cli::ask_for_consent,
-    error::canister::{CanisterBuilderError, CanisterInstallError},
-    identity::CallSender,
-};
 
 pub async fn build_wallet_canister(
     id: Principal,
@@ -80,7 +79,7 @@ YOU WILL LOSE ALL DATA IN THE CANISTER.
                 .map_err(CanisterBuilderError::CallSenderBuildError)?
                 .call_and_wait()
                 .await
-                .map_err(CanisterInstallError::InstallWasmError)?;
+                .map_err(CanisterInstallError::InstallWasmError)
         }
         CallSender::Wallet(wallet_id) => {
             let wallet = build_wallet_canister(*wallet_id, agent).await?;
@@ -99,8 +98,7 @@ YOU WILL LOSE ALL DATA IN THE CANISTER.
                 )
                 .call_and_wait()
                 .await
-                .map_err(CanisterInstallError::InstallWasmError)?;
+                .map_err(CanisterInstallError::InstallWasmError)
         }
     }
-    Ok(())
 }

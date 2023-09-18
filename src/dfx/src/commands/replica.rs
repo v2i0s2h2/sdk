@@ -14,16 +14,15 @@ use dfx_core::config::model::dfinity::DEFAULT_REPLICA_PORT;
 use dfx_core::config::model::local_server_descriptor::LocalServerDescriptor;
 use dfx_core::json::{load_json_file, save_json_file};
 use dfx_core::network::provider::{create_network_descriptor, LocalBindDetermination};
-
 use anyhow::{bail, Context};
 use clap::{ArgAction, Parser};
 use fn_error_context::context;
+use slog::warn;
 use std::default::Default;
 use std::fs;
 use std::fs::create_dir_all;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-
 use super::start::CachedConfig;
 
 /// Starts a local Internet Computer replica.
@@ -101,6 +100,13 @@ pub fn exec(
         force,
     }: ReplicaOpts,
 ) -> DfxResult {
+    warn!(
+        env.get_logger(),
+        "The replica command is deprecated. \
+        Please use the start command instead. \
+        If you have a good reason to use the replica command, \
+        please contribute to the discussion at https://github.com/dfinity/sdk/discussions/3163"
+    );
     let system = actix::System::new();
 
     let network_descriptor = create_network_descriptor(
@@ -118,6 +124,7 @@ pub fn exec(
         enable_bitcoin,
         bitcoin_node,
         enable_canister_http,
+        emulator
     )?;
 
     let local_server_descriptor = network_descriptor.local_server_descriptor()?;

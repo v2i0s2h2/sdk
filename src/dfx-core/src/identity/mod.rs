@@ -14,15 +14,15 @@ use crate::error::wallet_config::WalletConfigError::{
 };
 use crate::identity::identity_file_locations::IdentityFileLocations;
 use crate::json::{load_json_file, save_json_file};
+use candid::Principal;
+use ic_agent::agent::EnvelopeContent;
+use ic_agent::identity::{AnonymousIdentity, BasicIdentity, Secp256k1Identity};
+use ic_agent::Signature;
+use ic_identity_hsm::HardwareIdentity;
 pub use identity_manager::{
     HardwareIdentityConfiguration, IdentityConfiguration, IdentityCreationParameters,
     IdentityManager,
 };
-
-use candid::Principal;
-use ic_agent::identity::{AnonymousIdentity, BasicIdentity, Secp256k1Identity};
-use ic_agent::Signature;
-use ic_identity_hsm::HardwareIdentity;
 use serde::{Deserialize, Serialize};
 use slog::{info, Logger};
 use std::collections::BTreeMap;
@@ -249,8 +249,8 @@ impl ic_agent::Identity for Identity {
         self.inner.sender()
     }
 
-    fn sign(&self, blob: &[u8]) -> Result<Signature, String> {
-        self.inner.sign(blob)
+    fn sign(&self, content: &EnvelopeContent) -> Result<Signature, String> {
+        self.inner.sign(content)
     }
 }
 

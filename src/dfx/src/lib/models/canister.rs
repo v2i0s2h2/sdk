@@ -1,6 +1,6 @@
 use crate::lib::builders::{
-    custom_download, set_perms_readwrite, BuildConfig, BuildOutput, BuilderPool, CanisterBuilder,
-    IdlBuildOutput, WasmBuildOutput,
+    custom_download, BuildConfig, BuildOutput, BuilderPool, CanisterBuilder, IdlBuildOutput,
+    WasmBuildOutput,
 };
 use crate::lib::canister_info::CanisterInfo;
 use crate::lib::environment::Environment;
@@ -9,11 +9,10 @@ use crate::lib::metadata::dfx::DfxMetadata;
 use crate::lib::metadata::names::{CANDID_ARGS, CANDID_SERVICE, DFX};
 use crate::lib::wasm::file::{compress_bytes, read_wasm_module};
 use crate::util::{assets, check_candid_file};
-use dfx_core::config::model::canister_id_store::CanisterIdStore;
-use dfx_core::config::model::dfinity::{CanisterMetadataSection, Config, MetadataVisibility};
-
 use anyhow::{anyhow, bail, Context};
 use candid::Principal as CanisterId;
+use dfx_core::config::model::canister_id_store::CanisterIdStore;
+use dfx_core::config::model::dfinity::{CanisterMetadataSection, Config, MetadataVisibility};
 use fn_error_context::context;
 use ic_wasm::metadata::{add_metadata, remove_metadata, Kind};
 use itertools::Itertools;
@@ -129,7 +128,7 @@ impl Canister {
         // optimize or shrink
         if let Some(level) = info.get_optimize() {
             trace!(logger, "Optimizing WASM at level {}", level);
-            ic_wasm::shrink::shrink_with_wasm_opt(&mut m, &level.to_string())
+            ic_wasm::shrink::shrink_with_wasm_opt(&mut m, &level.to_string(), false)
                 .context("Failed to optimize the WASM module.")?;
             modified = true;
         } else if info.get_shrink() == Some(true)
@@ -269,7 +268,7 @@ impl Canister {
         let constructor_idl_path = self.info.get_constructor_idl_path();
         dfx_core::fs::composite::ensure_parent_dir_exists(&constructor_idl_path)?;
         dfx_core::fs::copy(build_idl_path, &constructor_idl_path)?;
-        set_perms_readwrite(&constructor_idl_path)?;
+        dfx_core::fs::set_permissions_readwrite(&constructor_idl_path)?;
 
         // 2. Separate into service.did and init_args
         let (service_did, init_args) = separate_candid(build_idl_path)?;
@@ -300,25 +299,26 @@ impl Canister {
             }
             dfx_core::fs::composite::ensure_parent_dir_exists(&target)?;
             dfx_core::fs::write(&target, &service_did)?;
-            set_perms_readwrite(&target)?;
+            dfx_core::fs::set_permissions_readwrite(&target)?;
         }
 
         // 4. Save init_args into .dfx/local/canisters/NAME/init_args.txt
         let init_args_txt_path = self.info.get_init_args_txt_path();
         dfx_core::fs::composite::ensure_parent_dir_exists(&init_args_txt_path)?;
-        dfx_core::fs::write(&init_args_txt_path, &init_args)?;
-        set_perms_readwrite(&init_args_txt_path)?;
+        dfx_core::fs::write(&init_args_txt_path, init_args)?;
+        dfx_core::fs::set_permissions_readwrite(&init_args_txt_path)?;
         Ok(())
     }
 }
 
 fn separate_candid(path: &Path) -> DfxResult<(String, String)> {
     let (env, actor) = check_candid_file(path)?;
-    if let Some(candid::types::internal::Type::Class(args, ty)) = actor {
+    let actor = actor.ok_or_else(|| anyhow!("provided candid file contains no main service"))?;
+    if let candid::types::internal::TypeInner::Class(args, ty) = actor.as_ref() {
         use candid::bindings::candid::pp_ty;
         use candid::pretty::{concat, enclose};
 
-        let actor = Some(*ty);
+        let actor = Some(ty.clone());
         let service_did = candid::bindings::candid::compile(&env, &actor);
         let doc = concat(args.iter().map(pp_ty), ",");
         let init_args = enclose("(", doc, ")").pretty(80).to_string();
@@ -514,6 +514,7 @@ impl CanisterPool {
                     );
                     dfx_core::fs::composite::ensure_parent_dir_exists(&to)?;
                     dfx_core::fs::copy(from, &to)?;
+                    dfx_core::fs::set_permissions_readwrite(&to)?;
                 } else {
                     warn!(
                         log,

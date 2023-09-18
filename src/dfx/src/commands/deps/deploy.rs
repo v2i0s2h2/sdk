@@ -7,7 +7,6 @@ use crate::lib::deps::{
 use crate::lib::environment::Environment;
 use crate::lib::error::DfxResult;
 use crate::lib::root_key::fetch_root_key_if_needed;
-
 use anyhow::anyhow;
 use candid::Principal;
 use clap::Parser;
@@ -16,7 +15,7 @@ use ic_agent::Agent;
 use ic_utils::interfaces::{management_canister::builders::InstallMode, ManagementCanister};
 use slog::{info, Logger};
 
-/// Deploy pulled dependencies.
+/// Deploy pulled dependencies locally.
 #[derive(Parser)]
 pub struct DepsDeployOpts {
     /// Specify the canister to deploy. You can specify its name (as defined in dfx.json) or Principal.

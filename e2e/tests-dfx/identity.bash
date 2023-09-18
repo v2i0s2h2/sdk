@@ -14,6 +14,29 @@ teardown() {
     standard_teardown
 }
 
+@test "identity new: name validation" {
+    assert_command_fail dfx identity new iden%tity --storage-mode plaintext
+    assert_match "Invalid identity name"
+
+    assert_command_fail dfx identity new 'iden tity' --storage-mode plaintext
+    assert_match "Invalid identity name"
+
+    assert_command_fail dfx identity new "iden\$tity" --storage-mode plaintext
+    assert_match "Invalid identity name"
+
+    assert_command_fail dfx identity new iden\\tity --storage-mode plaintext
+    assert_match "Invalid identity name"
+
+    assert_command_fail dfx identity new 'iden\ttity' --storage-mode plaintext
+    assert_match "Invalid identity name"
+
+    assert_command_fail dfx identity new iden/tity --storage-mode plaintext
+    assert_match "Invalid identity name"
+
+    assert_command dfx identity new i_den.ti-ty --storage-mode plaintext
+
+    assert_command dfx identity new i_den@ti-ty --storage-mode plaintext
+}
 
 @test "identity get-principal: the get-principal is the same as sender id" {
     install_asset identity
@@ -169,4 +192,9 @@ teardown() {
     dfx identity new bob --storage-mode plaintext
     assert_command dfx ledger balance --network ic --identity bob
     assert_match "WARN: The bob identity is not stored securely." "$stderr"
+
+    export DFX_WARNING=-mainnet_plaintext_identity
+    assert_command dfx ledger balance --network ic --identity bob
+    assert_not_contains "not stored securely" "$stderr"
+
 }

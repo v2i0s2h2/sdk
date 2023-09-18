@@ -2,28 +2,24 @@ use crate::commands::canister::call::get_effective_canister_id;
 use crate::lib::environment::Environment;
 use crate::lib::error::DfxResult;
 use crate::lib::operations::canister::get_local_cid_and_candid_path;
-use crate::lib::sign::sign_transport::SignReplicaV2Transport;
+use crate::lib::sign::sign_transport::SignTransport;
 use crate::lib::sign::signed_message::SignedMessageV1;
-use dfx_core::identity::CallSender;
-
 use crate::util::clap::parsers::file_or_stdin_parser;
 use crate::util::{arguments_from_file, blob_from_arguments, get_candid_type};
-
+use anyhow::{anyhow, bail, Context};
 use candid::Principal;
+use clap::Parser;
+use dfx_core::identity::CallSender;
 use ic_agent::AgentError;
 use ic_agent::RequestId;
-
-use anyhow::{anyhow, bail, Context};
-use clap::Parser;
 use slog::info;
-use time::OffsetDateTime;
-
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::SystemTime;
+use time::OffsetDateTime;
 
 /// Sign a canister call and generate message file.
 #[derive(Parser)]
@@ -174,10 +170,7 @@ pub async fn exec(
     }
 
     let mut sign_agent = agent.clone();
-    sign_agent.set_transport(SignReplicaV2Transport::new(
-        file_name.clone(),
-        message_template,
-    ));
+    sign_agent.set_transport(SignTransport::new(file_name.clone(), message_template));
 
     let is_management_canister = canister_id == Principal::management_canister();
     let effective_canister_id =
@@ -187,7 +180,7 @@ pub async fn exec(
         let res = sign_agent
             .query(&canister_id, method_name)
             .with_effective_canister_id(effective_canister_id)
-            .with_arg(&arg_value)
+            .with_arg(arg_value)
             .expire_at(expiration_system_time)
             .call()
             .await;
@@ -203,7 +196,7 @@ pub async fn exec(
         let res = sign_agent
             .update(&canister_id, method_name)
             .with_effective_canister_id(effective_canister_id)
-            .with_arg(&arg_value)
+            .with_arg(arg_value)
             .expire_at(expiration_system_time)
             .call()
             .await;

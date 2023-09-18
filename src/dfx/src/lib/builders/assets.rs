@@ -1,5 +1,5 @@
 use crate::lib::builders::{
-    set_perms_readwrite, BuildConfig, BuildOutput, CanisterBuilder, IdlBuildOutput, WasmBuildOutput,
+    BuildConfig, BuildOutput, CanisterBuilder, IdlBuildOutput, WasmBuildOutput,
 };
 use crate::lib::canister_info::assets::AssetsCanisterInfo;
 use crate::lib::canister_info::CanisterInfo;
@@ -7,12 +7,11 @@ use crate::lib::environment::Environment;
 use crate::lib::error::{BuildError, DfxError, DfxResult};
 use crate::lib::models::canister::CanisterPool;
 use crate::util;
+use anyhow::{anyhow, Context};
+use candid::Principal as CanisterId;
 use console::style;
 use dfx_core::config::cache::Cache;
 use dfx_core::config::model::network_descriptor::NetworkDescriptor;
-
-use anyhow::{anyhow, Context};
-use candid::Principal as CanisterId;
 use fn_error_context::context;
 use slog::{o, Logger};
 use std::fs;
@@ -89,7 +88,7 @@ impl CanisterBuilder for AssetsBuilder {
             .join(Path::new("assetstorage.wasm.gz"));
         unpack_did(info.get_output_root())?;
         let canister_assets = util::assets::assets_wasm(&self.logger)?;
-        fs::write(&wasm_path, &canister_assets).context("Failed to write asset canister wasm")?;
+        fs::write(&wasm_path, canister_assets).context("Failed to write asset canister wasm")?;
         let idl_path = info.get_output_root().join(Path::new("assetstorage.did"));
         Ok(BuildOutput {
             canister_id: info.get_canister_id().expect("Could not find canister ID."),
@@ -154,7 +153,7 @@ impl CanisterBuilder for AssetsBuilder {
         if idl_path.exists() {
             std::fs::rename(&idl_path, &idl_path_rename)
                 .with_context(|| format!("Failed to rename {}.", idl_path.to_string_lossy()))?;
-            set_perms_readwrite(&idl_path_rename)?;
+            dfx_core::fs::set_permissions_readwrite(&idl_path_rename)?;
         }
 
         Ok(idl_path_rename)

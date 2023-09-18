@@ -7,9 +7,7 @@ use crate::lib::environment::Environment;
 use crate::lib::error::DfxResult;
 use crate::lib::models::canister::CanisterPool;
 use crate::util::download_file_to_path;
-
 use anyhow::{anyhow, Context};
-
 use candid::Principal as CanisterId;
 use console::style;
 use fn_error_context::context;
@@ -172,13 +170,8 @@ impl CanisterBuilder for CustomBuilder {
         // get the path to candid file
         let CustomBuilderExtra { candid, .. } = CustomBuilderExtra::try_from(info, pool)?;
 
-        std::fs::copy(&candid, &output_idl_path).with_context(|| {
-            format!(
-                "Failed to copy canidid from {} to {}.",
-                candid.to_string_lossy(),
-                output_idl_path.to_string_lossy()
-            )
-        })?;
+        dfx_core::fs::copy(&candid, &output_idl_path)?;
+        dfx_core::fs::set_permissions_readwrite(&output_idl_path)?;
 
         Ok(output_idl_path)
     }

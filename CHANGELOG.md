@@ -2,9 +2,256 @@
 
 # UNRELEASED
 
-## DFX
+### fix: Include remote canisters in canisters_to_generate
+
+Generate frontend declarations for remote canisters too because frontend JS code may want to call them.
+
+### feat: Updated handling of missing values in state tree certificates
+
+The `Unknown` lookup of a path in a certificate results in an `AgentError` (the IC returns `Absent` for non-existing paths).
+
+### fix: dfx deploy urls printed for asset canisters
+
+### chore: --emulator parameter is deprecated and will be discontinued soon
+
+Added warning that the `--emulator` is deprecated and will be discontinued soon.
+
+### fix: node engines in starter
+
+Updates node engines to reflect the same engines supported in agent-js.
+
+"node": "^12 || ^14 || ^16 || >=17",
+"npm": "^7.17 || >=8"
+
+### feat: deploy to playground
+
+Introduced a new network type called `playground`. Canisters on such networks are not created through standard means, but are instead borrowed from a canister pool.
+The canisters time out after a while and new canisters need to be borrowed for further deployments.
+To define custom playground networks, use a network definition that includes the `playground` key:
+```json
+"<network name>": {
+  "playground": {
+    "playground_canister": "<canister pool id>",
+    "timeout_seconds": <amount of seconds after which a canister is returned to the pool>
+  }
+}
+```
+
+Introduced a new network that is available by default called `playground`. Additionally, `--playground` is an alias for `--network playground`.
+By default, this network targets the Motoko Playground backend to borrow canisters. The borrowed canisters will be available for 20 minutes, and the timer restarts on new deployments.
+When the timer runs out the canister(s) will be uninstalled and are returned to the pool.
+Any commands that allow choosing a target network (e.g. `dfx canister call`) require `--playground` or `--network playground` in order to target the borrowed canister(s).
+Use `dfx deploy --playground` to deploy simple projects to a canister borrowed from the Motoko Playground.
+
+### feat: `--ic` is shorthand for `--network ic`
+
+For example, `dfx deploy --ic` rather than `dfx deploy --network ic`.
+
+### fix: Motoko base library files in cache are no longer executable
+
+### feat: `dfx start` for shared network warns if ignoring 'defaults' in dfx.json
+
+Background: In order to determine whether to start a project-specific network or the shared network, `dfx start` looks for the `local` network in dfx.json.
+   - If found, `dfx start` starts the project-specific local network, applying any `defaults` from dfx.json.
+   - If there is no dfx.json, or if dfx.json does not define a `local` network, `dfx start` starts the shared network.  Because the shared network is not specific to any project, `dfx start` ignores any other settings from dfx.json, including `defaults`.
+
+If `dfx start` is starting the shared network from within a dfx project, and that dfx.json contains settings in the `defaults` key for `bitcoin`, `replica`, or `canister_http`, then `dfx start` will warn that it is ignoring those settings.  It will also describe how to define equivalent settings in networks.json.
+
+## Dependencies
 
 ### Frontend canister
+
+For certification v1, if none of the requested encoding are certified but another encoding is certified, then the frontend canister once again returns the certificatie even though the response hash won't match.
+This allows the verifying side to try to transform the response such that it matches the response hash.
+For example, if only the encoding `gzip` is requested but the `identity` encoding is certified, the `gzip` encoding is returned with the certificate for the `identity` encoding.
+The verifying side can then unzip the response and will have a valid certificate for the `identity` response.
+
+- Module hash: baf9bcab2ebc2883f850b965af658e66725087933df012ebd35c03929c39efe3
+- https://github.com/dfinity/sdk/pull/3369
+- https://github.com/dfinity/sdk/pull/3298
+- https://github.com/dfinity/sdk/pull/3281
+
+# 0.15.0
+
+## DFX
+
+### chore: add `--use-old-metering` flag
+
+The `use-old-metering` flag enables old metering in replica. The new metering is enabled in the `starter` by default, so this flag is to compare the default new metering with the old one.
+
+The flag is temporary and will be removed in a few months.
+
+### fix: added https://icp-api.io to the default Content-Security-Policy header
+
+Existing projects will need to change this value in .ic-assets.json or .ic-assets.json5 to include https://icp-api.io
+
+All projects will need to redeploy.
+
+### fix: access to raw assets is now enabled by default
+
+The default value for `allow_raw_access` is now `true`.  This means that by default, the frontend canister will no longer restrict the access of traffic to the `<canister-id>.raw.icp0.io` domain, and will no longer automatically redirect all requests to the certified domain (`<canister-id>.icp0.io`), unless configured explicitly.
+
+Note that existing projects that specify `"allow_raw_access": false` in .ic-assets.json5 will need to change or remove this value manually in order to allow raw access.
+
+### feat!: Removed dfx nns and dfx sns commands
+
+Both have now been turned into the dfx extensions. In order to obtain them, please run `dfx extension install nns` and `dfx extension install sns` respectively. After the installation, you can use them as you did before: `dfx nns ...`, and `dfx sns ...`.
+
+### feat!: Removed dfx replica and dfx bootstrap commands
+
+Use `dfx start` instead.  If you have a good reason why we should keep these commands, please contribute to the discussion at https://github.com/dfinity/sdk/discussions/3163
+
+### fix: Wait for new module hash when installing wallet
+
+A previous change made dfx wait after installing a canister until the replica updated its reported module hash, but this change did not affect wallets. Now dfx waits for wallets too, to eliminate a class of wallet installation errors.
+
+### fix: Ctrl-C right after dfx start will hang for minutes and panics
+
+Early break out from actors starting procedure.
+
+### feat: can disable the warnings about using an unencrypted identity on mainnet
+
+It's now possible to suppress warnings of this form:
+
+```
+WARN: The <identity> identity is not stored securely. Do not use it to control a lot of cycles/ICP. Create a new identity with `dfx identity new` and use it in mainnet-facing commands with the `--identity` flag
+```
+
+To do so, export the environment variable `DFX_WARNING` with the value `-mainnet_plaintext_identity`.
+```bash
+export DFX_WARNING="-mainnet_plaintext_identity"
+```
+
+Note that this can be combined to also disable the dfx version check warning:
+```bash
+export DFX_WARNING="-version_check,-mainnet_plaintext_identity"
+```
+
+### fix!: restrict `dfx identity new` to safe characters
+
+New identities like `dfx identity new my/identity` or `dfx identity new 'my identity'` can easily lead to problems, either for dfx internals or for usability.
+New identities are now restricted to the characters `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.-_@0123456789`.
+Existing identities are not affected by this change.
+
+## Frontend canister
+
+> **NOTE**: We've re-enabled response verification v2 in the asset canister.
+
+### fix: Certification for aliasing updates on asset deletion
+
+Best explained by an example: Two assets exist with aliasing enabled: `/content` and `/content.html`. Usually, when requesting `/content`, `/content.html` is served because it has aliasing enabled.
+But in this scenario, because `/content` exists, it overwrites the alias and `/content` is served when requesting the path `/content`.
+When the file `/content` is deleted, `/content` is once again a valid alias of `/content.html`.
+Previously, the alias of `/content.html` was not properly updated in the certification tree, making `/content` inaccessible.
+
+### fix: 404 response is now certified for certification v2
+
+Certification v2 allows certifying arbitrary responses. If the requested file does not exist, and the fallback file (`/index.html`) does not exist either,
+the frontend canister serves a HTTP 404 response. This response was previously not certified.
+
+### fix!: The CreateAsset batch operation now fails if the asset already exists
+
+Previously, the operation was a no-op if the content type matched, but ignored other, possibly different, asset properties. Now, it fails with an error.
+
+### fix!: http_request_streaming_callback and get_chunk now require the sha256 parameter to be set
+
+The `http_request_streaming_callback()` and `get_chunk()` methods use the `sha256` parameter to ensure that the chunks they return are part of the same asset contents returned by the initial call.  This parameter is now required to be Some(hash).
+
+For `http_request()` and `http_request_streaming_callback()`, there should be no change: all callers of `http_request_streaming_callback()` are expected to pass the entire token returned by `http_request()`, which includes the sha256 parameter.
+
+Any callers of `get_chunk()` should make sure to always pass the `sha256` value returned by the `get()` method.  It will always be present.
+
+## Dependencies
+
+### Motoko
+
+Updated Motoko to [0.9.7](https://github.com/dfinity/motoko/releases/tag/0.9.7)
+
+### Updated candid to 0.9.0
+
+### Candid UI
+
+- Module hash: b9173bb25dabe5e2b736a8f2816e68fba14ca72132f5485ce7b8f16a85737a17
+- https://github.com/dfinity/sdk/pull/3260
+- https://github.com/dfinity/sdk/pull/3252
+- https://github.com/dfinity/candid/pull/449
+- https://github.com/dfinity/candid/pull/453
+
+### Frontend canister
+
+- Module hash: e20be8df2c392937a6ae0f70d20ff23b75e8c71d9085a8b8bb438b8c2d4eafe5
+- https://github.com/dfinity/sdk/pull/3337
+- https://github.com/dfinity/sdk/pull/3298
+- https://github.com/dfinity/sdk/pull/3256
+- https://github.com/dfinity/sdk/pull/3252
+- https://github.com/dfinity/sdk/pull/3249
+- https://github.com/dfinity/sdk/pull/3212
+- https://github.com/dfinity/sdk/pull/3227
+
+### Replica
+
+Updated replica to elected commit cabe2ae3ca115b1a3f24d75814d4f8e317b2964d.
+This incorporates the following executed proposals:
+
+- [124331](https://dashboard.internetcomputer.org/proposal/124331)
+- [124330](https://dashboard.internetcomputer.org/proposal/124330)
+- [124272](https://dashboard.internetcomputer.org/proposal/124272)
+- [124021](https://dashboard.internetcomputer.org/proposal/124021)
+- [123977](https://dashboard.internetcomputer.org/proposal/123977)
+- [123976](https://dashboard.internetcomputer.org/proposal/123976)
+- [123922](https://dashboard.internetcomputer.org/proposal/123922)
+- [123784](https://dashboard.internetcomputer.org/proposal/123784)
+- [123730](https://dashboard.internetcomputer.org/proposal/123730)
+- [123711](https://dashboard.internetcomputer.org/proposal/123711)
+- [123474](https://dashboard.internetcomputer.org/proposal/123474)
+- [123410](https://dashboard.internetcomputer.org/proposal/123410)
+- [123311](https://dashboard.internetcomputer.org/proposal/123311)
+
+# 0.14.2
+
+## DFX
+
+### feat: deprecate `dfx bootstrap` and `dfx replica` commands
+
+Please use `dfx start` instead, which is a combination of the two commands.
+
+If you have a good reason why we should keep these commands, please contribute to the discussion at https://github.com/dfinity/sdk/discussions/3163
+
+### feat: add optional custom build command for asset canisters
+
+The custom build command can be set in `dfx.json` the same way it is set for `custom` type canisters. If the command is not provided, DFX will fallback to the default `npm run build` command.
+
+```json
+{
+  "canisters": {
+    "ui": {
+      "type": "assets",
+      "build": ["<custom build command>"]
+    }
+  }
+}
+```
+
+### fix: Diagnose duplicate assets and display upgrade steps
+
+If `dfx deploy` detects duplicate assets in the dist/ and frontend assets/ directories, it will now suggest upgrade steps.
+
+### fix: motoko canisters can import other canisters with service constructor
+
+After specific canister builder output wasm and candid file, `dfx` will do some post processing on the candid file.
+
+The complete IDL will be copied into `.dfx` folder with name `constructor.did`.
+It will be used for type checking during canister installation.
+
+Then it is separated into two parts: `service.did` and `init_args.txt`, corresponding to canister metadata `candid:service` and `candid:args`.
+
+`service.did` will be imported during dependent canisters building. And it will also be used by the Motoko LSP to provide IDE support.
+
+### fix: dfx start now respects the network replica port configuration in dfx.json or networks.json
+
+## Frontend canister
+
+> **NOTE**: We've disabled response verification v2 in the asset canister while we improve test coverage.
 
 The redirect from `.raw.ic0.app` now redirects to `.ic0.app` instead of `.icp0.io`
 
@@ -31,51 +278,70 @@ Suggestions for configured limits:
 
 Note that as always, if `dfx deploy` does not completely upload and commit a batch, the asset canister will retain the batch until 5 minutes have passed since the last chunk was uploaded.  If you have configured limits and the combination of an unsuccessful deployment and a subsequent attempt would exceed those limits, you can either wait 5 minutes before running `dfx deploy` again, or delete the incomplete batch with `delete_batch()`.
 
+### fix: return the correct expr_path for index.html fallback routes
+
+Previously, the requested path was used to construct the `expr_path` for the `index.html` fallback route.  This was incorrect, as the `expr_path` should be the path of the `index.html` file itself in this case.
+
+## Frontend canister assets synchronization
+
+### fix: now retries failed `create_chunk()` calls
+
+Previously, it would only retry when waiting for the request to complete.
+
+### fix: now considers fewer error types to be retryable
+
+Previously, errors were assumed to be retryable, except for a few specific error messages and 403/unauthorized responses.  This could cause deployment to appear to hang until timeout.  
+
+Now, only transport errors and timeout errors are considered retryable.
+
 ## Dependencies
 
 ### Frontend canister
 
-- Module hash: 99eae7ce78e59352817faf811c2337707e8de955d00f62b98fdd49d35f99a2f4
+- Module hash: 1286960c50eb7a773cfb5fdd77cc238588f39e21f189cc3eb0f35199a99b9c7e
+- https://github.com/dfinity/sdk/pull/3205
+- https://github.com/dfinity/sdk/pull/3198
 - https://github.com/dfinity/sdk/pull/3154
 - https://github.com/dfinity/sdk/pull/3158
+- https://github.com/dfinity/sdk/pull/3144
+
+### ic-ref
+
+Updated ic-ref to 0.0.1-a9f73dba
+
+### Cycles wallet
+
+Updated cycles wallet to `20230530` release:
+- Module hash: c1290ad65e6c9f840928637ed7672b688216a9c1e919eacbacc22af8c904a5e3
+- https://github.com/dfinity/cycles-wallet/commit/313fb01d59689df90bd3381659d94164c2a61cf4
+
+### Motoko
+
+Updated Motoko to 0.9.3
+
+### Replica
+
+Updated replica to elected commit ef8ca68771baa20a14af650ab89c9b31b1dc9a5e.
+This incorporates the following executed proposals:
+- [123248](https://dashboard.internetcomputer.org/proposal/123248)
+- [123021](https://dashboard.internetcomputer.org/proposal/123021)
+- [123007](https://dashboard.internetcomputer.org/proposal/123007)
+- [122923](https://dashboard.internetcomputer.org/proposal/122923)
+- [122924](https://dashboard.internetcomputer.org/proposal/122924)
+- [122910](https://dashboard.internetcomputer.org/proposal/122910)
+- [122911](https://dashboard.internetcomputer.org/proposal/122911)
+- [122746](https://dashboard.internetcomputer.org/proposal/122746)
+- [122748](https://dashboard.internetcomputer.org/proposal/122748)
+- [122617](https://dashboard.internetcomputer.org/proposal/122617)
+- [122615](https://dashboard.internetcomputer.org/proposal/122615)
 
 # 0.14.1
 
 ## DFX
 
-### feat: add optional custom build command for asset canisters
-
-The custom build command can be set in `dfx.json` the same way it is set for `custom` type canisters. If the command is not provided, DFX will fallback to the default `npm run build` command.
-
-```json
-{
-  "canisters": {
-    "ui": {
-      "type": "assets",
-      "build": ["<custom build command>"]
-    }
-  }
-}
-```
-
-### fix: motoko canisters can import other canisters with service constructor
-
-After specific canister builder output wasm and candid file, `dfx` will do some post processing on the candid file.
-
-The complete IDL will be copied into `.dfx` folder with name `constructor.did`.
-It will be used for type checking during canister installation.
-
-Then it is separated into two parts: `service.did` and `init_args.txt`, corresponding to canister metadata `candid:service` and `candid:args`.
-
-`service.did` will be imported during dependent canisters building. And it will also be used by the Motoko LSP to provide IDE support.
-
 ### fix: `dfx canister delete` without stopping first
 
 When running `dfx canister delete` on a canister that has not been stopped, dfx will now confirm the deletion instead of erroring.
-
-### fix: cleanup of documentation
-
-Cleaned up documentation of IC SDK.
 
 ### feat: gzip option in dfx.json
 
@@ -141,13 +407,16 @@ This is required for future replica versions.
 
 Adds a new field `canister_init_arg` to the bitcoin configuration in dfx.json and networks.json.  Its default is documented in the JSON schema and is appropriate for the canister wasm bundled with dfx.
 
-### fix: dfx start now respects the network replica port configuration in dfx.json or networks.json
-
 ### fix: no longer enable the bitcoin_regtest feature
+
+### docs: cleanup of documentation
+
+Cleaned up documentation of IC SDK.
 
 ## Asset Canister Synchronization
 
 ### feat: Added more detailed logging to `ic-asset`.
+
 Now, `dfx deploy -v` (or `-vv`) will print the following information:
 - The count for each `BatchOperationKind` in `CommitBatchArgs`
 - The number of chunks uploaded and the total bytes
@@ -155,6 +424,7 @@ Now, `dfx deploy -v` (or `-vv`) will print the following information:
 - (Only for `-vv`) The value of `CommitBatchArgs`
 
 ### fix: Commit batches incrementally in order to account for more expensive v2 certification calculation
+
 In order to allow larger changes without exceeding the per-message instruction limit, the sync process now:
 - sets properties of assets already in the canister separately from the rest of the batch.
 - splits up the rest of the batch into groups of up to 500 operations.
@@ -171,12 +441,6 @@ Now, only transport errors and timeout errors are considered retryable.
 
 ## Dependencies
 
-### Cycles wallet
-
-Updated cycles wallet to `20230530` release:
-- Module hash: c1290ad65e6c9f840928637ed7672b688216a9c1e919eacbacc22af8c904a5e3
-- https://github.com/dfinity/cycles-wallet/commit/313fb01d59689df90bd3381659d94164c2a61cf4
-
 ### Frontend canister
 
 The asset canister now properly removes the v2-certified response when `/index.html` is deleted.
@@ -187,8 +451,7 @@ The HttpResponse type now explicitly mentions the `upgrade : Option<bool>` field
 
 The asset canister no longer needs to use `await` for access control checks. This will speed up certain operations.
 
-- Module hash: 6963fd7765c3f69a64de691ebd1b313e3706bc233a721c60274adccb99a8f4a7
-- https://github.com/dfinity/sdk/pull/3144
+- Module hash: 651425d92d3796ddae581191452e0e87484eeff4ff6352fe9a59c7e1f97a2310
 - https://github.com/dfinity/sdk/pull/3120
 - https://github.com/dfinity/sdk/pull/3112
 
@@ -196,16 +459,10 @@ The asset canister no longer needs to use `await` for access control checks. Thi
 
 Updated Motoko to 0.8.8
 
-### ic-ref
-
-Updated ic-ref to 0.0.1-a9f73dba
-
 ### Replica
 
-Updated replica to elected commit 794fc5b9341fa8f6a0e8f219201c35f0b5727ab9.
+Updated replica to elected commit b3b00ba59c366384e3e0cd53a69457e9053ec987.
 This incorporates the following executed proposals:
-- [122617](https://dashboard.internetcomputer.org/proposal/122617)
-- [122615](https://dashboard.internetcomputer.org/proposal/122615)
 - [122529](https://dashboard.internetcomputer.org/proposal/122529)
 - [122284](https://dashboard.internetcomputer.org/proposal/122284)
 - [122198](https://dashboard.internetcomputer.org/proposal/122198)

@@ -3,6 +3,8 @@ use crate::lib::error::DfxResult;
 use crate::lib::root_key::fetch_root_key_if_needed;
 use crate::util::assets::wallet_wasm;
 use crate::Environment;
+use anyhow::{anyhow, bail, Context};
+use candid::Principal;
 use dfx_core::canister::build_wallet_canister;
 use dfx_core::config::directories::get_config_dfx_dir_path;
 use dfx_core::config::model::network_descriptor::{NetworkDescriptor, NetworkTypeDescriptor};
@@ -12,10 +14,8 @@ use dfx_core::error::wallet_config::WalletConfigError::{
 };
 use dfx_core::identity::{Identity, WalletGlobalConfig, WalletNetworkMap, WALLET_CONFIG_FILENAME};
 use dfx_core::json::save_json_file;
-
-use anyhow::{anyhow, bail, Context};
-use candid::Principal;
 use fn_error_context::context;
+use ic_agent::agent::{RejectCode, RejectResponse};
 use ic_agent::AgentError;
 use ic_utils::call::AsyncCall;
 use ic_utils::interfaces::management_canister::builders::InstallMode;
@@ -57,7 +57,7 @@ pub fn get_wallet_config_path(
     name: &str,
 ) -> Result<PathBuf, WalletConfigError> {
     Ok(match &network.r#type {
-        NetworkTypeDescriptor::Persistent => {
+        NetworkTypeDescriptor::Persistent | NetworkTypeDescriptor::Playground { .. } => {
             // Using the global
             get_config_dfx_dir_path()
                 .map_err(|e| {
@@ -113,10 +113,11 @@ pub async fn create_wallet(
         .call_and_wait()
         .await
     {
-        Err(AgentError::ReplicaError {
-            reject_code: 5,
+        Err(AgentError::ReplicaError(RejectResponse {
+            reject_code: RejectCode::CanisterError,
             reject_message,
-        }) if reject_message.contains("not empty") => {
+            ..
+        })) if reject_message.contains("not empty") => {
             bail!(
                 r#"The wallet canister "{canister_id}" already exists for user "{name}" on "{}" network."#,
                 network.name
